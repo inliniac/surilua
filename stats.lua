@@ -30,14 +30,63 @@ function store_pvalues (t, v)
     end
 end
 
+function store_diff (t, v)
+    name = string.gsub(v["name"], "%.", "_");
+    --print (name)
+    local d = v["value"] - v["pvalue"]
+
+    if (t[name] ~= nil) then
+        t[name] = t[name] + d;
+    else
+        t[name] = d;
+    end
+end
+
+local warnings ={ }
+
+function warn (k, t, v)
+    if warnings[k] == nil then
+        SCLogWarning("(" .. t .. ") Warning -- " .. v)
+        warnings[k] = true
+    end
+
+end
+
+function flow_indicators (t, p, d)
+    if (t.tcp_no_flow > 0) then
+        warn("tcp_no_flow", "flow engine", "TCP packets w/o flow")
+    end
+    if (t.flow_emerg_mode_entered > 0) then
+        warn("flow_emerg_mode_entered", "flow engine", "Emergency mode")
+    end
+end
+
+function tcp_indicators (t, p, d)
+    if (d.decoder_invalid > 0) then
+        warn("decoder_invalid", "capture", "getting invalid packets: could be malformed traffic, but also capture problem")
+    end
+end
+
+function decoder_indicators (t, p, d)
+    if (t.tcp_syn > 0 and t.tcp_syn > (t.tcp_synack * 2)) then
+        warn("tcp_syn_gt_synack", "capture", "SYN packets greatly outnumber SYN/ACK's: could be a scan/flood, but also a capture problem")
+    end
+end
+
+
+
 function log(args)
-    t = { capture_drops = 0 }
-    p = { capture_drops = 0 }
+    local t = { capture_drops = 0 }
+    local p = { capture_drops = 0 }
+    local d = { capture_drops = 0 }
 
     for n, v in ipairs(args) do
         store_values(t,v)
         store_pvalues(p,v)
+        store_diff(d,v)
     end
+    flow_indicators (t, p, d)
+    tcp_indicators (t, p, d)
 
     if (t.capture_drops > t.decoder_pkts) then
         print "(perf analyzer) WARNING: massive packet loss detected. Dropping more packets than are processed."
