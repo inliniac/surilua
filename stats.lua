@@ -71,9 +71,25 @@ function tcp_indicators (t, p, d)
     if (t.tcp_syn > 0 and t.tcp_syn > (t.tcp_synack * 2)) then
         warn("tcp_syn_gt_synack", "capture", "SYN packets greatly outnumber SYN/ACK's: could be a scan/flood, but also a capture problem")
     end
+
+    if (t.tcp_reassembly_gap > (t.tcp_sessions / 10)) then
+        warn("tcp_reassembly_gap", "capture", "TCP data gaps detected in more than 10% of the sessions. Possible causes are packet loss (either at the host or SPAN/TAP, NIC offloading")
+    end
+
+    if (d.tcp_no_flow > 0 and d.tcp_no_flow > 25) then
+        warn("tcp_no_flow", "flow engine", "TCP packets w/o associated flow increased by " .. d.tcp_no_flow .. ". Indication of flow engine in distress.")
+    end
 end
 
+function capture_indicators (t, p, d)
+    if (t.capture_drops > t.decoder_pkts) then
+        warn("massive_packet_loss", "capture", "massive packet loss detected. Dropping more packets than are processed")
+    end
 
+    --if (t.capture_drops > 0 and t.capture_drops < (t.decoder_pkts / 100)) then
+    --    print "(perf analyzer) Minor packet loss of less than 1%."
+    --end
+end
 
 function log(args)
     local t = { capture_drops = 0 }
@@ -85,26 +101,11 @@ function log(args)
         store_pvalues(p,v)
         store_diff(d,v)
     end
+
+    capture_indicators (t, p, d)
     flow_indicators (t, p, d)
     tcp_indicators (t, p, d)
     decoder_indicators (t, p, d)
-
-    if (t.capture_drops > t.decoder_pkts) then
-        print "(perf analyzer) WARNING: massive packet loss detected. Dropping more packets than are processed."
-    end
-
-    if (t.capture_drops > 0 and t.capture_drops < (t.decoder_pkts / 100)) then
-        print "(perf analyzer) Minor packet loss of less than 1%."
-    end
-
-    if (t.tcp_reassembly_gap > (t.tcp_sessions / 10)) then
-        print "(perf analyzer) Warning: TCP data gaps detected in more than 10% of the sessions. Possible causes are packet loss (either at the host or SPAN/TAP, NIC offloading."
-    end
-
-    if (t.tcp_no_flow > p.tcp_no_flow and t.tcp_no_flow - p.tcp_no_flow > 25) then
-        diff = t.tcp_no_flow - p.tcp_no_flow;
-        print ("(perf analyzer) Warning: TCP packets w/o associated flow increased by " .. diff .. ". Indication of flow engine in distress.")
-    end
 
     total = t.decoder_pkts + t.capture_drops
     str = string.format("Packets %d (%2.1f%%) processed, dropped %d (%2.1f%%)", t.decoder_pkts, (t.decoder_pkts / total * 100), t.capture_drops, (t.capture_drops / total * 100));
