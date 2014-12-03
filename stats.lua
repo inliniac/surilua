@@ -61,13 +61,13 @@ function flow_indicators (t, p, d)
     end
 end
 
-function tcp_indicators (t, p, d)
+function decoder_indicators (t, p, d)
     if (d.decoder_invalid > 0) then
         warn("decoder_invalid", "capture", "getting invalid packets: could be malformed traffic, but also capture problem")
     end
 end
 
-function decoder_indicators (t, p, d)
+function tcp_indicators (t, p, d)
     if (t.tcp_syn > 0 and t.tcp_syn > (t.tcp_synack * 2)) then
         warn("tcp_syn_gt_synack", "capture", "SYN packets greatly outnumber SYN/ACK's: could be a scan/flood, but also a capture problem")
     end
@@ -87,6 +87,7 @@ function log(args)
     end
     flow_indicators (t, p, d)
     tcp_indicators (t, p, d)
+    decoder_indicators (t, p, d)
 
     if (t.capture_drops > t.decoder_pkts) then
         print "(perf analyzer) WARNING: massive packet loss detected. Dropping more packets than are processed."
