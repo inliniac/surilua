@@ -97,13 +97,39 @@ function tcp_indicators (t, p, d)
 end
 
 function capture_indicators (t, p, d)
-    if (t.capture_drops > t.decoder_pkts) then
+    if (t.capture_merged_drops > t.decoder_pkts) then
         warn("massive_packet_loss", "capture", "massive packet loss detected. Dropping more packets than are processed")
     end
 
-    --if (t.capture_drops > 0 and t.capture_drops < (t.decoder_pkts / 100)) then
+    --if (t.capture_merged_drops > 0 and t.capture_merged_drops < (t.decoder_pkts / 100)) then
     --    print "(perf analyzer) Minor packet loss of less than 1%."
     --end
+end
+
+-- do the actual drop counter merge
+function capture_merge_drops_do(table)
+    local drops = 0
+    if table.capture_kernel_drops ~= nil then
+        drops = drops + table.capture_kernel_drops
+    end
+    if table.capture_kernel_ifdrops ~= nil then
+        drops = drops + table.capture_kernel_ifdrops
+    end
+    if table.capture_drops ~= nil then
+        drops = drops + table.capture_drops
+    end
+    table.capture_merged_drops = drops
+end
+
+-- merge various capture 'drop' counters into one 'capture_merged_drops'
+function capture_merge_drops (t, p, d)
+    t.capture_merged_drops = 0
+    p.capture_merged_drops = 0
+    d.capture_merged_drops = 0
+
+    capture_merge_drops_do(t)
+    capture_merge_drops_do(p)
+    capture_merge_drops_do(d) 
 end
 
 function log(args)
@@ -117,13 +143,15 @@ function log(args)
         store_diff(d,v)
     end
 
+    capture_merge_drops (t, p, d)
+
     capture_indicators (t, p, d)
     flow_indicators (t, p, d)
     tcp_indicators (t, p, d)
     decoder_indicators (t, p, d)
 
-    total = t.decoder_pkts + t.capture_drops
-    str = string.format("Packets %d (%2.1f%%) processed, dropped %d (%2.1f%%)", t.decoder_pkts, (t.decoder_pkts / total * 100), t.capture_drops, (t.capture_drops / total * 100));
+    total = t.decoder_pkts + t.capture_merged_drops
+    str = string.format("Packets %d (%2.1f%%) processed, dropped %d (%2.1f%%)", t.decoder_pkts, (t.decoder_pkts / total * 100), t.capture_merged_drops, (t.capture_merged_drops / total * 100));
     SCLogInfo(str);
 
     str = string.format("TCP sessions %d, with gaps %2.1f%%", t.tcp_sessions, ((t.tcp_reassembly_gap * 2) / t.tcp_sessions) * 100)
