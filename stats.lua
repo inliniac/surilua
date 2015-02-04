@@ -23,6 +23,7 @@ end
 
 function setup (args)
     SCLogInfo("setting up");
+    start_time = os.time()
 end
 
 function store_values (t, v)
@@ -150,8 +151,18 @@ function log(args)
     tcp_indicators (t, p, d)
     decoder_indicators (t, p, d)
 
+    cur_time = os.time()
+    elapsed_time = os.difftime(cur_time-start_time)
+    start_time = os.time() -- reset
+
+    pps_read = d.decoder_pkts / elapsed_time
+    pps_dropped = 0
+    if d.capture_merged_drops ~= 0 then
+        pps_dropped = d.capture_merged_drops / elapsed_time
+    end
+
     total = t.decoder_pkts + t.capture_merged_drops
-    str = string.format("Packets %d (%2.1f%%) processed, dropped %d (%2.1f%%)", t.decoder_pkts, (t.decoder_pkts / total * 100), t.capture_merged_drops, (t.capture_merged_drops / total * 100));
+    str = string.format("Packets %d (%2.1f%%) processed (%d pps), %d dropped, %d drops/s (%2.1f%%)", t.decoder_pkts, (t.decoder_pkts / total * 100), pps_read, t.capture_merged_drops, pps_dropped, (t.capture_merged_drops / total * 100));
     SCLogInfo(str);
 
     str = string.format("TCP sessions %d, with gaps %2.1f%%", t.tcp_sessions, ((t.tcp_reassembly_gap * 2) / t.tcp_sessions) * 100)
