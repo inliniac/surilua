@@ -158,6 +158,11 @@ function log(args)
     elapsed_time = os.difftime(cur_time,start_time)
     start_time = os.time() -- reset
 
+    bytesps_read = d.decoder_bytes / elapsed_time
+    bitps_read = bytesps_read * 8
+    mbitps_read = bitps_read / 1000000
+    gbitps_read = mbitps_read / 1000
+
     pps_read = d.decoder_pkts / elapsed_time
     if pps_read > top_pps then
         top_pps = pps_read
@@ -178,11 +183,14 @@ function log(args)
         end
     end
 
-    total = t.decoder_pkts + t.capture_merged_drops
-    str = string.format("Packets %d (%2.1f%%) processed (%d pps), %d dropped, %d drops/s (%2.1f%%)", t.decoder_pkts, (t.decoder_pkts / total * 100), pps_read, t.capture_merged_drops, pps_dropped, (t.capture_merged_drops / total * 100));
+    str = string.format("Volume: %.3f Mbit/s %.3f Gbit/s", mbitps_read, gbitps_read);
     SCLogInfo(str);
 
-    str = string.format("TCP sessions %d, with gaps %2.1f%%", t.tcp_sessions, ((t.tcp_reassembly_gap * 2) / t.tcp_sessions) * 100)
+    total = t.decoder_pkts + t.capture_merged_drops
+    str = string.format("Packets: %d (%2.1f%%) processed (%d pps), %d dropped, %d drops/s (%2.1f%%)", t.decoder_pkts, (t.decoder_pkts / total * 100), pps_read, t.capture_merged_drops, pps_dropped, (t.capture_merged_drops / total * 100));
+    SCLogInfo(str);
+
+    str = string.format("TCP: sessions %d, with gaps %2.1f%%", t.tcp_sessions, ((t.tcp_reassembly_gap * 2) / t.tcp_sessions) * 100)
     SCLogInfo(str);
 
 end
