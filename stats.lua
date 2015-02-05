@@ -26,6 +26,7 @@ function setup (args)
     start_time = os.time()
     top_pps = 0
     top_pps_nodrops = 0
+    min_pps_drops = 0
 end
 
 function store_values (t, v)
@@ -164,6 +165,13 @@ function log(args)
     pps_dropped = 0
     if d.capture_merged_drops ~= 0 then
         pps_dropped = d.capture_merged_drops / elapsed_time
+        if min_pps_drops == 0 then
+            min_pps_drops = pps_read
+        else
+            if pps_read < min_pps_drops then
+                min_pps_drops = pps_read
+            end
+        end
     else
         if pps_read > top_pps_nodrops then
             top_pps_nodrops = pps_read
@@ -180,6 +188,6 @@ function log(args)
 end
 
 function deinit (args)
-    str = string.format("Max PPS %d, max PPS w/o drops %d", top_pps, top_pps_nodrops)
+    str = string.format("Max PPS %d, max PPS w/o drops %d, lowest PPS with drops %d", top_pps, top_pps_nodrops, min_pps_drops)
     SCLogInfo(str);
 end
