@@ -24,6 +24,8 @@ end
 function setup (args)
     SCLogInfo("setting up");
     start_time = os.time()
+    top_pps = 0
+    top_pps_nodrops = 0
 end
 
 function store_values (t, v)
@@ -152,13 +154,20 @@ function log(args)
     decoder_indicators (t, p, d)
 
     cur_time = os.time()
-    elapsed_time = os.difftime(cur_time-start_time)
+    elapsed_time = os.difftime(cur_time,start_time)
     start_time = os.time() -- reset
 
     pps_read = d.decoder_pkts / elapsed_time
+    if pps_read > top_pps then
+        top_pps = pps_read
+    end
     pps_dropped = 0
     if d.capture_merged_drops ~= 0 then
         pps_dropped = d.capture_merged_drops / elapsed_time
+    else
+        if pps_read > top_pps_nodrops then
+            top_pps_nodrops = pps_read
+        end
     end
 
     total = t.decoder_pkts + t.capture_merged_drops
@@ -171,4 +180,6 @@ function log(args)
 end
 
 function deinit (args)
+    str = string.format("Max PPS %d, max PPS w/o drops %d", top_pps, top_pps_nodrops)
+    SCLogInfo(str);
 end
